@@ -16,34 +16,24 @@ public:
     explicit ThreadPool(size_t threads = std::thread::hardware_concurrency());
     ~ThreadPool();
 
-    // 禁止拷贝和赋值
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool& operator=(const ThreadPool&) = delete;
 
-    // 提交任务到线程池
     template<typename F, typename... Args>
     auto enqueue(F&& f, Args&&... args) 
         -> std::future<typename std::invoke_result<F, Args...>::type>;
 
-    // 获取线程数量
     size_t size() const { return workers.size(); }
-
-    // 等待所有任务完成
     void wait();
 
 private:
-    // 工作线程
     std::vector<std::thread> workers;
-    
-    // 任务队列
     std::queue<std::function<void()>> tasks;
     
-    // 同步
     std::mutex queue_mutex;
     std::condition_variable condition;
     std::condition_variable completion_condition;
     
-    // 停止标志
     std::atomic<bool> stop;
     std::atomic<size_t> active_tasks;
 };
@@ -71,7 +61,6 @@ inline ThreadPool::ThreadPool(size_t threads)
                 
                 task();
                 
-                // 任务完成，通知等待的线程
                 if (--active_tasks == 0) {
                     completion_condition.notify_all();
                 }
@@ -126,4 +115,4 @@ inline ThreadPool::~ThreadPool() {
     }
 }
 
-#endif // THREAD_POOL_H
+#endif

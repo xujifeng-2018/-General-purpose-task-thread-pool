@@ -1,5 +1,5 @@
-#ifndef THREAD_POOL_V3_OPTIMIZED_H
-#define THREAD_POOL_V3_OPTIMIZED_H
+#ifndef THREAD_POOL_V3_H
+#define THREAD_POOL_V3_H
 
 #include <vector>
 #include <queue>
@@ -12,17 +12,14 @@
 #include <memory>
 #include <deque>
 
-// 缓存行大小（通常64字节）
 constexpr size_t CACHE_LINE_SIZE = 64;
 
-// 任务优先级
 enum class TaskPriority : int {
     LOW = 0,
     NORMAL = 1,
     HIGH = 2
 };
 
-// 带优先级的任务包装
 struct Task {
     TaskPriority priority;
     std::function<void()> func;
@@ -32,7 +29,6 @@ struct Task {
     }
 };
 
-// 缓存行对齐的原子计数器
 template<typename T>
 struct alignas(CACHE_LINE_SIZE) AlignedAtomic {
     std::atomic<T> value{0};
@@ -40,7 +36,6 @@ struct alignas(CACHE_LINE_SIZE) AlignedAtomic {
     AlignedAtomic() = default;
     AlignedAtomic(T v) : value(v) {}
     
-    // 提供类似atomic的接口
     T load(std::memory_order order = std::memory_order_seq_cst) const {
         return value.load(order);
     }
@@ -65,7 +60,6 @@ struct alignas(CACHE_LINE_SIZE) AlignedAtomic {
     }
 };
 
-// 缓存行对齐的工作窃取队列
 class alignas(CACHE_LINE_SIZE) WorkStealingQueue {
 public:
     void push(std::function<void()> task) {
@@ -93,16 +87,10 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         return queue_.empty();
     }
-    
-    size_t size() const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return queue_.size();
-    }
 
 private:
     mutable std::mutex mutex_;
     std::deque<std::function<void()>> queue_;
-    // padding已由alignas(64)保证
 };
 
 class ThreadPoolV3 {
@@ -122,11 +110,8 @@ public:
         -> std::future<typename std::invoke_result<F, Args...>::type>;
 
     size_t size() const { return workers.size(); }
-    
     void wait();
-    
     bool is_current_worker() const { return is_worker_thread_; }
-    size_t get_thread_index() const { return thread_index_; }
 
 private:
     void worker_thread(size_t index);
@@ -144,7 +129,6 @@ private:
     std::condition_variable completion_condition_;
     std::mutex completion_mutex_;
     
-    // ✅ 缓存行对齐的原子变量（避免false sharing）
     alignas(CACHE_LINE_SIZE) AlignedAtomic<bool> stop_;
     alignas(CACHE_LINE_SIZE) AlignedAtomic<size_t> active_tasks_;
     alignas(CACHE_LINE_SIZE) AlignedAtomic<size_t> waiting_threads_;
@@ -314,4 +298,4 @@ inline ThreadPoolV3::~ThreadPoolV3() {
     }
 }
 
-#endif // THREAD_POOL_V3_OPTIMIZED_H
+#endif
