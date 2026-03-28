@@ -29,3 +29,8 @@ Thumbs.db
 # Temporary files
 *.log
 *.tmp
+
+# Unrelated repositories
+multimedia_av_codec/
+multimedia_media_foundation/
+third_party_ffmpeg/
